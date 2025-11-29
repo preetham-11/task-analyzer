@@ -7,141 +7,103 @@
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <div class="container">
+    <div class="app-container">
         <header class="header">
             <h1>Smart Task Analyzer</h1>
-            <p class="subtitle">Intelligently prioritize your tasks based on urgency, importance, effort, and dependencies</p>
+            <p class="subtitle">Intelligently prioritize your tasks</p>
         </header>
 
-        <div class="main-content">
-            <section class="input-section">
-                <h2>Input Tasks</h2>
-                
-                <div class="input-mode-tabs">
-                    <button class="tab-btn active" data-mode="form">Add Individual Task</button>
-                    <button class="tab-btn" data-mode="json">Paste JSON</button>
+        <div class="main-layout">
+            <section class="left-panel">
+                <div class="input-tabs">
+                    <button class="tab-btn active" data-mode="form">Add Task</button>
+                    <button class="tab-btn" data-mode="json">Load JSON</button>
                 </div>
 
                 <div id="form-mode" class="input-mode active">
-                    <div class="form-group">
-                        <label for="task-title">Task Title</label>
-                        <input 
-                            type="text" 
-                            id="task-title" 
-                            placeholder="e.g., Fix login bug"
-                            class="form-input"
-                        >
+                    <div class="form-group compact">
+                        <label for="task-title">Title</label>
+                        <input type="text" id="task-title" placeholder="Task name" class="form-input">
+                        <span class="error-text" id="error-title"></span>
                     </div>
 
-                    <div class="form-group">
+                    <div class="form-group compact">
                         <label for="task-due-date">Due Date</label>
-                        <input 
-                            type="date" 
-                            id="task-due-date"
-                            class="form-input"
-                        >
+                        <input type="date" id="task-due-date" class="form-input">
+                        <span class="error-text" id="error-due-date"></span>
                     </div>
 
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="task-importance">Importance (1-10)</label>
-                            <input 
-                                type="number" 
-                                id="task-importance" 
-                                min="1" 
-                                max="10" 
-                                value="5"
-                                class="form-input"
-                            >
+                    <div class="form-row-compact">
+                        <div class="form-group compact">
+                            <label for="task-importance">Importance</label>
+                            <input type="number" id="task-importance" min="1" max="10" value="5" class="form-input">
+                            <span class="error-text" id="error-importance"></span>
                         </div>
-
-                        <div class="form-group">
-                            <label for="task-hours">Estimated Hours</label>
-                            <input 
-                                type="number" 
-                                id="task-hours" 
-                                min="0.5" 
-                                step="0.5" 
-                                value="2"
-                                class="form-input"
-                            >
+                        <div class="form-group compact">
+                            <label for="task-hours">Hours</label>
+                            <input type="number" id="task-hours" min="0.5" step="0.5" value="2" class="form-input">
+                            <span class="error-text" id="error-hours"></span>
                         </div>
                     </div>
 
-                    <div class="form-group">
-                        <label for="task-dependencies">Task Dependencies (IDs separated by comma)</label>
-                        <input 
-                            type="text" 
-                            id="task-dependencies" 
-                            placeholder="e.g., 1, 2, 3 or leave empty"
-                            class="form-input"
-                        >
+                    <div class="form-group compact">
+                        <label for="task-dependencies">Dependencies (IDs)</label>
+                        <input type="text" id="task-dependencies" placeholder="1,2,3 or leave empty" class="form-input">
+                        <span class="error-text" id="error-dependencies"></span>
                     </div>
 
-                    <div class="form-actions">
-                        <button id="add-task-btn" class="btn btn-primary">Add Task to List</button>
-                        <button id="clear-form-btn" class="btn btn-secondary">Clear Form</button>
+                    <div class="form-actions-compact">
+                        <button id="add-task-btn" class="btn btn-primary btn-sm">Add Task</button>
+                        <button id="clear-form-btn" class="btn btn-secondary btn-sm">Clear</button>
                     </div>
                 </div>
 
                 <div id="json-mode" class="input-mode">
-                    <div class="form-group">
-                        <label for="json-input">Paste JSON Array</label>
-                        <textarea 
-                            id="json-input" 
-                            class="json-textarea"
-                            placeholder='[{"title": "Task 1", "due_date": "2025-11-30", "importance": 8, "estimated_hours": 2, "dependencies": []}, ...]'
-                        ></textarea>
+                    <div class="form-group compact">
+                        <label for="json-input">Paste JSON</label>
+                        <textarea id="json-input" class="json-textarea-compact" placeholder='[{"title":"Task","due_date":"2025-12-01","importance":8,"estimated_hours":2}]'></textarea>
+                        <span class="error-text" id="error-json"></span>
                     </div>
-                    <button id="load-json-btn" class="btn btn-primary">Load from JSON</button>
+                    <button id="load-json-btn" class="btn btn-primary btn-sm">Load JSON</button>
                 </div>
 
-                <div class="task-list-container">
-                    <h3>Tasks to Analyze</h3>
-                    <div id="task-list" class="task-list">
-                        <p class="empty-state">No tasks added yet. Add a task or load from JSON.</p>
+                <div class="tasks-preview">
+                    <h3>Tasks Queue</h3>
+                    <div id="task-list" class="task-list-compact">
+                        <p class="empty-state-small">No tasks added</p>
                     </div>
                 </div>
 
-                <div class="analysis-controls">
-                    <div class="form-group">
-                        <label for="strategy-select">Sorting Strategy</label>
+                <div class="analysis-panel">
+                    <div class="form-group compact">
+                        <label for="strategy-select">Strategy</label>
                         <select id="strategy-select" class="form-input">
-                            <option value="smart_balance">Smart Balance (All factors equal)</option>
-                            <option value="fastest_wins">Fastest Wins (Prioritize quick tasks)</option>
-                            <option value="high_impact">High Impact (Prioritize importance)</option>
-                            <option value="deadline_driven">Deadline Driven (Prioritize urgency)</option>
+                            <option value="smart_balance">Smart Balance</option>
+                            <option value="fastest_wins">Fastest Wins</option>
+                            <option value="high_impact">High Impact</option>
+                            <option value="deadline_driven">Deadline Driven</option>
                         </select>
                     </div>
-
-                    <button id="analyze-btn" class="btn btn-success">Analyze Tasks</button>
+                    <button id="analyze-btn" class="btn btn-success btn-block">Analyze</button>
                 </div>
             </section>
 
-            <section class="output-section">
-                <h2>Results</h2>
-                
-                <div id="loading-spinner" class="loading-spinner hidden">
-                    <div class="spinner"></div>
-                    <p>Analyzing tasks...</p>
+            <section class="right-panel">
+                <div id="loading-spinner" class="loading-spinner-compact hidden">
+                    <div class="spinner-small"></div>
+                    <p>Analyzing...</p>
                 </div>
 
-                <div id="error-message" class="error-message hidden"></div>
-
-                <div id="results-summary" class="results-summary hidden">
+                <div id="results-summary" class="results-summary-compact hidden">
                     <p id="summary-text"></p>
                 </div>
 
-                <div id="results-container" class="results-container">
-                    <p class="empty-state">Results will appear here after analysis</p>
+                <div id="results-container" class="results-grid">
+                    <p class="empty-state-large">Results will appear here</p>
                 </div>
             </section>
         </div>
     </div>
-
-    <footer class="footer">
-        <p>Smart Task Analyzer - Backend: http://127.0.0.1:8000/api/tasks/</p>
-    </footer>
 
     <script src="script.js"></script>
 </body>

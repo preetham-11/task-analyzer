@@ -33,39 +33,66 @@ function handleTabSwitch(event) {
     event.target.classList.add('active');
 }
 
+function clearFieldErrors() {
+    document.querySelectorAll('.error-text').forEach(el => {
+        el.textContent = '';
+    });
+    document.querySelectorAll('.form-input, .json-textarea-compact').forEach(el => {
+        el.classList.remove('error');
+    });
+}
+
+function setFieldError(fieldId, message) {
+    const field = document.getElementById(fieldId);
+    const errorEl = document.getElementById(`error-${fieldId}`);
+    
+    if (errorEl) {
+        errorEl.textContent = message;
+    }
+    if (field) {
+        field.classList.add('error');
+    }
+}
+
 function handleAddTask() {
+    clearFieldErrors();
+    
     const title = document.getElementById('task-title').value.trim();
     const dueDate = document.getElementById('task-due-date').value;
     const importance = parseInt(document.getElementById('task-importance').value) || 5;
     const hours = parseFloat(document.getElementById('task-hours').value) || 2;
     const dependenciesStr = document.getElementById('task-dependencies').value.trim();
 
+    let isValid = true;
+
     if (!title) {
-        showError('Please enter a task title');
-        return;
+        setFieldError('task-title', 'Title required');
+        isValid = false;
     }
 
     if (!dueDate) {
-        showError('Please select a due date');
-        return;
+        setFieldError('task-due-date', 'Date required');
+        isValid = false;
     }
 
     if (importance < 1 || importance > 10) {
-        showError('Importance must be between 1 and 10');
-        return;
+        setFieldError('task-importance', 'Must be 1-10');
+        isValid = false;
     }
 
     if (hours <= 0) {
-        showError('Estimated hours must be positive');
-        return;
+        setFieldError('task-hours', 'Must be positive');
+        isValid = false;
     }
+
+    if (!isValid) return;
 
     const dependencies = dependenciesStr
         ? dependenciesStr.split(',').map(d => parseInt(d.trim())).filter(d => !isNaN(d))
         : [];
 
     const newTask = {
-        id: tasksData.length + 1,
+        id: tasksData.length > 0 ? Math.max(...tasksData.map(t => t.id)) + 1 : 1,
         title: title,
         due_date: dueDate,
         importance: importance,
@@ -76,10 +103,10 @@ function handleAddTask() {
     tasksData.push(newTask);
     renderTaskList();
     handleClearForm();
-    showSuccess(`Task "${title}" added successfully`);
 }
 
 function handleClearForm() {
+    clearFieldErrors();
     document.getElementById('task-title').value = '';
     document.getElementById('task-due-date').value = '';
     document.getElementById('task-importance').value = '5';
@@ -88,10 +115,11 @@ function handleClearForm() {
 }
 
 function handleLoadJSON() {
+    clearFieldErrors();
     const jsonInput = document.getElementById('json-input').value.trim();
 
     if (!jsonInput) {
-        showError('Please paste JSON data');
+        setFieldError('json-input', 'Paste JSON data');
         return;
     }
 
@@ -99,12 +127,12 @@ function handleLoadJSON() {
         const parsedData = JSON.parse(jsonInput);
 
         if (!Array.isArray(parsedData)) {
-            showError('JSON must be an array of tasks');
+            setFieldError('json-input', 'Must be array: [{...}]');
             return;
         }
 
-        tasksData = parsedData.map((task, index) => ({
-            id: task.id || index + 1,
+        const newTasks = parsedData.map((task, index) => ({
+            id: task.id || (tasksData.length > 0 ? Math.max(...tasksData.map(t => t.id)) : 0) + index + 1,
             title: task.title || 'Untitled',
             due_date: task.due_date || new Date().toISOString().split('T')[0],
             importance: task.importance || 5,
@@ -112,11 +140,11 @@ function handleLoadJSON() {
             dependencies: task.dependencies || []
         }));
 
+        tasksData.push(...newTasks);
         renderTaskList();
         document.getElementById('json-input').value = '';
-        showSuccess(`Loaded ${tasksData.length} tasks from JSON`);
     } catch (error) {
-        showError('Invalid JSON format: ' + error.message);
+        setFieldError('json-input', 'Invalid JSON: ' + error.message);
     }
 }
 
@@ -124,19 +152,17 @@ function renderTaskList() {
     const taskList = document.getElementById('task-list');
 
     if (tasksData.length === 0) {
-        taskList.innerHTML = '<p class="empty-state">No tasks added yet. Add a task or load from JSON.</p>';
+        taskList.innerHTML = '<p class="empty-state-small">No tasks added</p>';
         return;
     }
 
     taskList.innerHTML = tasksData.map(task => `
-        <div class="task-item">
-            <div class="task-item-info">
-                <div class="task-item-title">${escapeHtml(task.title)}</div>
-                <div class="task-item-details">
-                    Due: ${task.due_date} | Importance: ${task.importance}/10 | Hours: ${task.estimated_hours}
-                </div>
+        <div class="task-item-compact">
+            <div class="task-item-title-compact">${escapeHtml(task.title)}</div>
+            <div class="task-item-details-compact">
+                ${task.due_date} | ${task.importance}/10 | ${task.estimated_hours}h
             </div>
-            <button class="task-item-remove" onclick="removeTask(${task.id})">Remove</button>
+            <button class="task-item-remove-compact" onclick="removeTask(${task.id})" title="Remove task">X</button>
         </div>
     `).join('');
 }
@@ -144,12 +170,11 @@ function renderTaskList() {
 function removeTask(taskId) {
     tasksData = tasksData.filter(t => t.id !== taskId);
     renderTaskList();
-    showSuccess('Task removed');
 }
 
 async function handleAnalyze() {
     if (tasksData.length === 0) {
-        showError('Please add at least one task to analyze');
+        showResultsError('Add at least one task to analyze');
         return;
     }
 
@@ -175,14 +200,14 @@ async function handleAnalyze() {
         showLoading(false);
 
         if (!response.ok || !data.success) {
-            showError(data.message || data.error || 'Analysis failed');
+            showResultsError(data.message || data.error || 'Analysis failed');
             return;
         }
 
         displayResults(data);
     } catch (error) {
         showLoading(false);
-        showError('Network error: ' + error.message);
+        showResultsError('Network error: ' + error.message);
         console.error('API Error:', error);
     }
 }
@@ -196,59 +221,40 @@ function displayResults(data) {
     summaryDiv.classList.remove('hidden');
 
     if (data.results.length === 0) {
-        resultsContainer.innerHTML = '<p class="empty-state">No results to display</p>';
+        resultsContainer.innerHTML = '<p class="empty-state-large">No results</p>';
         return;
     }
 
-    resultsContainer.innerHTML = data.results.map(task => {
+    resultsContainer.innerHTML = data.results.map((task, index) => {
         const priorityClass = task.priority_level.toLowerCase();
 
         return `
-            <div class="task-card ${priorityClass}">
-                <div class="task-card-header">
-                    <div class="task-card-title">${escapeHtml(task.title)}</div>
-                    <span class="priority-badge ${priorityClass}">${task.priority_level}</span>
+            <div class="task-card-compact ${priorityClass}">
+                <div class="task-card-header-compact">
+                    <div class="task-card-title-compact">${escapeHtml(task.title)}</div>
+                    <span class="priority-badge-compact ${priorityClass}">${task.priority_level}</span>
                 </div>
 
-                <div class="task-card-explanation">
+                <div class="task-card-explanation-compact">
                     ${escapeHtml(task.explanation)}
                 </div>
 
-                <div class="task-card-metrics">
-                    <div class="metric">
-                        <div class="metric-label">Priority Score</div>
-                        <div class="metric-value">${task.priority_score}</div>
+                <div class="task-card-metrics-compact">
+                    <div class="metric-compact">
+                        <div class="metric-label-compact">Priority</div>
+                        <div class="metric-value-compact">${task.priority_score}</div>
                     </div>
-                    <div class="metric">
-                        <div class="metric-label">Urgency</div>
-                        <div class="metric-value">${task.urgency}</div>
+                    <div class="metric-compact">
+                        <div class="metric-label-compact">Urgency</div>
+                        <div class="metric-value-compact">${task.urgency}</div>
                     </div>
-                    <div class="metric">
-                        <div class="metric-label">Importance</div>
-                        <div class="metric-value">${task.importance_score}</div>
+                    <div class="metric-compact">
+                        <div class="metric-label-compact">Importance</div>
+                        <div class="metric-value-compact">${task.importance_score}</div>
                     </div>
-                    <div class="metric">
-                        <div class="metric-label">Effort</div>
-                        <div class="metric-value">${task.effort > 0 ? '+' : ''}${task.effort}</div>
-                    </div>
-                </div>
-
-                <div class="task-card-details">
-                    <div class="detail-row">
-                        <span class="detail-label">Due Date:</span>
-                        <span class="detail-value">${task.due_date}</span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="detail-label">Importance:</span>
-                        <span class="detail-value">${task.importance}/10</span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="detail-label">Estimated Hours:</span>
-                        <span class="detail-value">${task.estimated_hours} hrs</span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="detail-label">Dependencies Count:</span>
-                        <span class="detail-value">${task.dependencies_count}</span>
+                    <div class="metric-compact">
+                        <div class="metric-label-compact">Effort</div>
+                        <div class="metric-value-compact">${task.effort > 0 ? '+' : ''}${task.effort}</div>
                     </div>
                 </div>
             </div>
@@ -269,24 +275,18 @@ function showLoading(isLoading) {
     }
 }
 
-function showError(message) {
-    const errorDiv = document.getElementById('error-message');
-    errorDiv.textContent = message;
-    errorDiv.classList.remove('hidden');
-
-    setTimeout(() => {
-        errorDiv.classList.add('hidden');
-    }, 5000);
-}
-
-function showSuccess(message) {
-    console.log('Success:', message);
+function showResultsError(message) {
+    const resultsContainer = document.getElementById('results-container');
+    resultsContainer.innerHTML = `
+        <div style="background-color: rgba(220, 38, 38, 0.1); border-left: 3px solid #dc2626; padding: 12px; border-radius: 6px; color: #dc2626; font-size: 0.9rem;">
+            <strong>Error:</strong> ${escapeHtml(message)}
+        </div>
+    `;
 }
 
 function clearResults() {
-    document.getElementById('results-container').innerHTML = '<p class="empty-state">Results will appear here after analysis</p>';
+    document.getElementById('results-container').innerHTML = '<p class="empty-state-large">Results will appear here</p>';
     document.getElementById('results-summary').classList.add('hidden');
-    document.getElementById('error-message').classList.add('hidden');
 }
 
 function escapeHtml(text) {
