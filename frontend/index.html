@@ -68,7 +68,10 @@
                 </div>
 
                 <div class="tasks-preview">
-                    <h3>Tasks Queue</h3>
+                    <div class="tasks-header">
+                        <h3>Tasks Queue</h3>
+                        <button id="delete-all-btn" class="btn-delete-all" style="display: none;">Delete All</button>
+                    </div>
                     <div id="task-list" class="task-list-compact">
                         <p class="empty-state-small">No tasks added</p>
                     </div>
@@ -84,7 +87,10 @@
                             <option value="deadline_driven">Deadline Driven</option>
                         </select>
                     </div>
-                    <button id="analyze-btn" class="btn btn-success btn-block">Analyze</button>
+                    <div class="analysis-buttons">
+                        <button id="analyze-btn" class="btn btn-success">Analyze</button>
+                        <button id="suggest-btn" class="btn btn-info">Get Top 3</button>
+                    </div>
                 </div>
             </section>
 

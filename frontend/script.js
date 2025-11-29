@@ -16,6 +16,8 @@ function initializeEventListeners() {
     document.getElementById('clear-form-btn').addEventListener('click', handleClearForm);
     document.getElementById('load-json-btn').addEventListener('click', handleLoadJSON);
     document.getElementById('analyze-btn').addEventListener('click', handleAnalyze);
+    document.getElementById('suggest-btn').addEventListener('click', handleSuggest);
+    document.getElementById('delete-all-btn').addEventListener('click', handleDeleteAll);
 }
 
 function handleTabSwitch(event) {
@@ -150,11 +152,15 @@ function handleLoadJSON() {
 
 function renderTaskList() {
     const taskList = document.getElementById('task-list');
+    const deleteAllBtn = document.getElementById('delete-all-btn');
 
     if (tasksData.length === 0) {
         taskList.innerHTML = '<p class="empty-state-small">No tasks added</p>';
+        deleteAllBtn.style.display = 'none';
         return;
     }
+
+    deleteAllBtn.style.display = 'block';
 
     taskList.innerHTML = tasksData.map(task => `
         <div class="task-item-compact">
@@ -287,6 +293,101 @@ function showResultsError(message) {
 function clearResults() {
     document.getElementById('results-container').innerHTML = '<p class="empty-state-large">Results will appear here</p>';
     document.getElementById('results-summary').classList.add('hidden');
+}
+
+async function handleSuggest() {
+    if (tasksData.length === 0) {
+        showResultsError('Add at least one task to get suggestions');
+        return;
+    }
+
+    const strategy = document.getElementById('strategy-select').value;
+
+    showLoading(true);
+    clearResults();
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/suggest/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                tasks: tasksData,
+                strategy: strategy
+            })
+        });
+
+        const data = await response.json();
+
+        showLoading(false);
+
+        if (!response.ok || !data.success) {
+            showResultsError(data.message || data.error || 'Failed to get suggestions');
+            return;
+        }
+
+        displaySuggestions(data);
+    } catch (error) {
+        showLoading(false);
+        showResultsError('Network error: ' + error.message);
+        console.error('API Error:', error);
+    }
+}
+
+function displaySuggestions(data) {
+    const resultsContainer = document.getElementById('results-container');
+    const summaryDiv = document.getElementById('results-summary');
+    const summaryText = document.getElementById('summary-text');
+
+    summaryText.textContent = `Top ${data.suggestions.length} recommended tasks using "${data.strategy}" strategy`;
+    summaryDiv.classList.remove('hidden');
+
+    if (data.suggestions.length === 0) {
+        resultsContainer.innerHTML = '<p class="empty-state-large">No suggestions available</p>';
+        return;
+    }
+
+    resultsContainer.innerHTML = data.suggestions.map((task, index) => {
+        const priorityClass = task.priority.toLowerCase();
+        const rank = index + 1;
+
+        return `
+            <div class="task-card-compact ${priorityClass}">
+                <div class="task-card-header-compact">
+                    <div class="task-card-title-compact">#${rank} - ${escapeHtml(task.title)}</div>
+                    <span class="priority-badge-compact ${priorityClass}">${task.priority}</span>
+                </div>
+
+                <div class="task-card-explanation-compact">
+                    ${escapeHtml(task.reason)}
+                </div>
+
+                <div class="task-card-metrics-compact">
+                    <div class="metric-compact">
+                        <div class="metric-label-compact">Priority Score</div>
+                        <div class="metric-value-compact">${task.priority_score}</div>
+                    </div>
+                    <div class="metric-compact">
+                        <div class="metric-label-compact">Due Date</div>
+                        <div class="metric-value-compact">${task.due_date}</div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function handleDeleteAll() {
+    if (tasksData.length === 0) {
+        return;
+    }
+
+    if (confirm(`Are you sure you want to delete all ${tasksData.length} tasks?`)) {
+        tasksData = [];
+        renderTaskList();
+        clearResults();
+    }
 }
 
 function escapeHtml(text) {
