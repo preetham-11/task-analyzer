@@ -60,7 +60,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:8000",
     "http://127.0.0.1:8000",
     "https://smart-task-analyzer.onrender.com",
-    "https://task-analyzer-vercel.vercel.app/",
+    "https://task-analyzer-vercel.vercel.app",  
 ]
 
 CORS_ALLOW_CREDENTIALS = True
