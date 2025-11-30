@@ -162,7 +162,6 @@ Tasks are sorted by final score in descending order, with the highest-scoring ta
  - **Smart Balance Strategy:** Gives equal weight (1x) to both Urgency and Importance. A highly urgent task (100 pts) and a highly important task (100 pts) contribute equally.
  - **Deadline Driven:** Triples the weight of Urgency (3x), so an urgent task will outrank an important one.
  - **High Impact:** Triples the weight of Importance (3x), so a critical task will outrank a merely urgent one.
- - **The "Eisenhower Matrix" effect:** By combining these scores, tasks that are *both* Urgent and Important naturally rise to the very top.
  
  ---
 
