@@ -17,8 +17,10 @@ Including another URLconf
 
 from django.contrib import admin
 from django.urls import path, include
+from backend.views import HomeView
 
 urlpatterns = [
+    path("", HomeView.as_view(), name='home'),  # Root URL
     path("admin/", admin.site.urls),
     path('api/tasks/', include('tasks.urls')),
 ]
