@@ -24,36 +24,38 @@
                     <div class="form-group compact">
                         <label for="task-title">Title</label>
                         <input type="text" id="task-title" placeholder="Task name" class="form-input">
-                        <span class="error-text" id="error-title"></span>
+                        <span class="error-text" id="error-task-title"></span>
                     </div>
 
                     <div class="form-group compact">
                         <label for="task-due-date">Due Date</label>
                         <input type="date" id="task-due-date" class="form-input">
-                        <span class="error-text" id="error-due-date"></span>
+                        <span class="error-text" id="error-task-due-date"></span>
                     </div>
 
                     <div class="form-row-compact">
                         <div class="form-group compact">
                             <label for="task-importance">Importance</label>
                             <input type="number" id="task-importance" min="1" max="10" value="5" class="form-input">
-                            <span class="error-text" id="error-importance"></span>
+                            <span class="error-text" id="error-task-importance"></span>
                         </div>
                         <div class="form-group compact">
                             <label for="task-hours">Hours</label>
                             <input type="number" id="task-hours" min="0.5" step="0.5" value="2" class="form-input">
-                            <span class="error-text" id="error-hours"></span>
+                            <span class="error-text" id="error-task-hours"></span>
                         </div>
                     </div>
 
                     <div class="form-group compact">
-                        <label for="task-dependencies">Dependencies (IDs)</label>
-                        <input type="text" id="task-dependencies" placeholder="1,2,3 or leave empty" class="form-input">
-                        <span class="error-text" id="error-dependencies"></span>
+                        <label for="task-dependencies">Dependencies (Optional)</label>
+                        <div class="dependencies-container" id="dependencies-container">
+                            <p class="empty-dependencies">No tasks available yet</p>
+                        </div>
+                        <span class="error-text" id="error-task-dependencies"></span>
                     </div>
 
                     <div class="form-actions-compact">
-                        <button id="add-task-btn" class="btn btn-primary btn-sm">Add Task</button>
+                        <button id="add-task-btn" class="btn btn-primary btn-sm">+ Add Task</button>
                         <button id="clear-form-btn" class="btn btn-secondary btn-sm">Clear</button>
                     </div>
                 </div>
@@ -62,16 +64,13 @@
                     <div class="form-group compact">
                         <label for="json-input">Paste JSON</label>
                         <textarea id="json-input" class="json-textarea-compact" placeholder='[{"title":"Task","due_date":"2025-12-01","importance":8,"estimated_hours":2}]'></textarea>
-                        <span class="error-text" id="error-json"></span>
+                        <span class="error-text" id="error-json-input"></span>
                     </div>
                     <button id="load-json-btn" class="btn btn-primary btn-sm">Load JSON</button>
                 </div>
 
                 <div class="tasks-preview">
-                    <div class="tasks-header">
-                        <h3>Tasks Queue</h3>
-                        <button id="delete-all-btn" class="btn-delete-all" style="display: none;">Delete All</button>
-                    </div>
+                    <h3>Tasks Queue</h3>
                     <div id="task-list" class="task-list-compact">
                         <p class="empty-state-small">No tasks added</p>
                     </div>
@@ -88,7 +87,7 @@
                         </select>
                     </div>
                     <div class="analysis-buttons">
-                        <button id="analyze-btn" class="btn btn-success">Analyze</button>
+                        <button id="analyze-btn" class="btn btn-success">Analyze All</button>
                         <button id="suggest-btn" class="btn btn-info">Get Top 3</button>
                     </div>
                 </div>

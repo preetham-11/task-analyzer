@@ -1,28 +1,41 @@
-from datetime import date
+from datetime import date, timedelta
 
 def calculate_urgency(due_date, today=None):
     """
-    Calculate urgency score (0-100) based on days until due.
+    Calculate urgency score (0-100) based on business days until due.
+    Weekends are excluded from the count.
     
     Scoring:
     - Overdue (past) or TODAY: +100
-    - 1-3 days: +50
-    - 4-7 days: +25
-    - 8-14 days: +10
-    - 15+ days: +0
+    - 1-3 business days: +50
+    - 4-7 business days: +25
+    - 8-14 business days: +10
+    - 15+ business days: +0
     """
     if today is None:
         today = date.today()
     
-    days_until = (due_date - today).days
+    # Calculate business days between today and due_date
+    business_days = 0
+    current = today
     
-    if days_until <= 0:
+    # If overdue or today, return max urgency
+    if due_date <= today:
         return 100
-    elif days_until <= 3:
+    
+    # Count business days (Monday=0, Sunday=6)
+    while current < due_date:
+        current += timedelta(days=1)
+        # Monday to Friday are business days (0-4)
+        if current.weekday() < 5:
+            business_days += 1
+    
+    # Score based on business days
+    if business_days <= 3:
         return 50
-    elif days_until <= 7:
+    elif business_days <= 7:
         return 25
-    elif days_until <= 14:
+    elif business_days <= 14:
         return 10
     else:
         return 0
@@ -56,15 +69,20 @@ def calculate_effort(estimated_hours):
 
 
 def calculate_dependencies(blocked_count):
-    """Calculate dependency bonus. 0=+0, 1=+20, 2+=+50."""
+    """
+    Calculate dependency bonus based on how many tasks are blocked.
+    Each blocked task adds 20 points (max 100).
+    
+    Args:
+        blocked_count: Number of tasks blocked by this task
+    
+    Returns:
+        int: Dependency score (0-100 points, 20 per blocked task)
+    """
     if blocked_count is None:
         blocked_count = 0
     
     blocked_count = int(blocked_count)
     
-    if blocked_count == 0:
-        return 0
-    elif blocked_count == 1:
-        return 20
-    else:
-        return 50
+    # 20 points per blocked task, max 100
+    return min(blocked_count * 20, 100)

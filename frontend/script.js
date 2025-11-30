@@ -1,6 +1,7 @@
 const API_BASE_URL = 'http://127.0.0.1:8000/api/tasks';
 
 let tasksData = [];
+let completedTasks = new Set();
 
 document.addEventListener('DOMContentLoaded', function() {
     initializeEventListeners();
@@ -17,7 +18,6 @@ function initializeEventListeners() {
     document.getElementById('load-json-btn').addEventListener('click', handleLoadJSON);
     document.getElementById('analyze-btn').addEventListener('click', handleAnalyze);
     document.getElementById('suggest-btn').addEventListener('click', handleSuggest);
-    document.getElementById('delete-all-btn').addEventListener('click', handleDeleteAll);
 }
 
 function handleTabSwitch(event) {
@@ -63,7 +63,10 @@ function handleAddTask() {
     const dueDate = document.getElementById('task-due-date').value;
     const importance = parseInt(document.getElementById('task-importance').value) || 5;
     const hours = parseFloat(document.getElementById('task-hours').value) || 2;
-    const dependenciesStr = document.getElementById('task-dependencies').value.trim();
+    
+    // Get selected dependencies from checkboxes
+    const dependencyCheckboxes = document.querySelectorAll('.dependency-checkbox:checked');
+    const dependencies = Array.from(dependencyCheckboxes).map(cb => parseInt(cb.value));
 
     let isValid = true;
 
@@ -75,6 +78,19 @@ function handleAddTask() {
     if (!dueDate) {
         setFieldError('task-due-date', 'Date required');
         isValid = false;
+    } else {
+        const selectedDate = new Date(dueDate);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0); // Reset time part
+        
+        // Calculate date 30 days ago
+        const minDate = new Date(today);
+        minDate.setDate(today.getDate() - 30);
+        
+        if (selectedDate < minDate) {
+            setFieldError('task-due-date', 'Date cannot be older than 30 days');
+            isValid = false;
+        }
     }
 
     if (importance < 1 || importance > 10) {
@@ -89,10 +105,6 @@ function handleAddTask() {
 
     if (!isValid) return;
 
-    const dependencies = dependenciesStr
-        ? dependenciesStr.split(',').map(d => parseInt(d.trim())).filter(d => !isNaN(d))
-        : [];
-
     const newTask = {
         id: tasksData.length > 0 ? Math.max(...tasksData.map(t => t.id)) + 1 : 1,
         title: title,
@@ -103,6 +115,7 @@ function handleAddTask() {
     };
 
     tasksData.push(newTask);
+    updateDependencyDropdown();
     renderTaskList();
     handleClearForm();
 }
@@ -113,7 +126,32 @@ function handleClearForm() {
     document.getElementById('task-due-date').value = '';
     document.getElementById('task-importance').value = '5';
     document.getElementById('task-hours').value = '2';
-    document.getElementById('task-dependencies').value = '';
+    
+    // Uncheck all dependency checkboxes
+    document.querySelectorAll('.dependency-checkbox').forEach(cb => {
+        cb.checked = false;
+    });
+}
+
+function updateDependencyDropdown() {
+    const container = document.getElementById('dependencies-container');
+    
+    // Only show non-completed tasks in dependency list
+    const availableTasks = tasksData.filter(task => !completedTasks.has(task.id));
+    
+    if (availableTasks.length === 0) {
+        container.innerHTML = '<p class="empty-dependencies">No tasks available yet</p>';
+        return;
+    }
+    
+    container.innerHTML = availableTasks.map((task, index) => {
+        return `
+            <label class="dependency-item">
+                <input type="checkbox" class="dependency-checkbox" value="${task.id}">
+                <span class="dependency-text">${index + 1}. ${task.title}</span>
+            </label>
+        `;
+    }).join('');
 }
 
 function handleLoadJSON() {
@@ -121,7 +159,7 @@ function handleLoadJSON() {
     const jsonInput = document.getElementById('json-input').value.trim();
 
     if (!jsonInput) {
-        setFieldError('json-input', 'Paste JSON data');
+        setFieldError('json-input', 'Please paste JSON data first');
         return;
     }
 
@@ -129,13 +167,24 @@ function handleLoadJSON() {
         const parsedData = JSON.parse(jsonInput);
 
         if (!Array.isArray(parsedData)) {
-            setFieldError('json-input', 'Must be array: [{...}]');
+            setFieldError('json-input', 'Format Error: Root must be an array [...]');
             return;
+        }
+
+        if (parsedData.length === 0) {
+            setFieldError('json-input', 'Array is empty. Add at least one task object.');
+            return;
+        }
+
+        // Validate first item structure
+        if (typeof parsedData[0] !== 'object' || parsedData[0] === null) {
+             setFieldError('json-input', 'Format Error: Array must contain objects {...}');
+             return;
         }
 
         const newTasks = parsedData.map((task, index) => ({
             id: task.id || (tasksData.length > 0 ? Math.max(...tasksData.map(t => t.id)) : 0) + index + 1,
-            title: task.title || 'Untitled',
+            title: task.title || 'Untitled Task',
             due_date: task.due_date || new Date().toISOString().split('T')[0],
             importance: task.importance || 5,
             estimated_hours: task.estimated_hours || 2,
@@ -143,44 +192,112 @@ function handleLoadJSON() {
         }));
 
         tasksData.push(...newTasks);
+        updateDependencyDropdown();
         renderTaskList();
         document.getElementById('json-input').value = '';
+        
+        // Show success feedback (optional but nice)
+        // alert(`Successfully loaded ${newTasks.length} tasks!`);
+        
     } catch (error) {
-        setFieldError('json-input', 'Invalid JSON: ' + error.message);
+        // Show specific syntax error from JSON.parse
+        setFieldError('json-input', `Invalid JSON: ${error.message}`);
     }
 }
 
 function renderTaskList() {
     const taskList = document.getElementById('task-list');
-    const deleteAllBtn = document.getElementById('delete-all-btn');
 
     if (tasksData.length === 0) {
         taskList.innerHTML = '<p class="empty-state-small">No tasks added</p>';
-        deleteAllBtn.style.display = 'none';
+        updateDependencyDropdown();
         return;
     }
 
-    deleteAllBtn.style.display = 'block';
-
-    taskList.innerHTML = tasksData.map(task => `
-        <div class="task-item-compact">
+    taskList.innerHTML = tasksData.map((task, index) => {
+        const isCompleted = completedTasks.has(task.id);
+        const dependencyText = task.dependencies && task.dependencies.length > 0 
+            ? ` | Depends on: ${task.dependencies.join(', ')}`
+            : '';
+        
+        return `
+        <div class="task-item-compact ${isCompleted ? 'completed' : ''}">
+            <input 
+                type="checkbox" 
+                class="task-checkbox" 
+                ${isCompleted ? 'checked' : ''}
+                onchange="toggleTaskCompletion(${task.id})"
+            >
+            <span class="task-serial">${index + 1}.</span>
             <div class="task-item-title-compact">${escapeHtml(task.title)}</div>
             <div class="task-item-details-compact">
-                ${task.due_date} | ${task.importance}/10 | ${task.estimated_hours}h
+                ${task.due_date} | ${task.importance}/10 | ${task.estimated_hours}h${dependencyText}
             </div>
-            <button class="task-item-remove-compact" onclick="removeTask(${task.id})" title="Remove task">X</button>
+            <button class="task-item-remove-compact" onclick="removeTask(${task.id})" title="Remove task">×</button>
         </div>
-    `).join('');
+    `;
+    }).join('');
+}
+
+function toggleTaskCompletion(taskId) {
+    if (completedTasks.has(taskId)) {
+        completedTasks.delete(taskId);
+    } else {
+        completedTasks.add(taskId);
+        
+        // Remove completed task from all dependencies
+        tasksData.forEach(task => {
+            if (task.dependencies) {
+                task.dependencies = task.dependencies.filter(depId => depId !== taskId);
+            }
+        });
+    }
+    
+    updateDependencyDropdown();
+    renderTaskList();
+    
+    // Re-analyze if results were showing
+    const summaryDiv = document.getElementById('results-summary');
+    const isAnalysisShowing = !summaryDiv.classList.contains('hidden');
+    
+    if (isAnalysisShowing && tasksData.length > 0) {
+        // Small delay to ensure DOM updates
+        setTimeout(() => handleAnalyze(), 100);
+    }
 }
 
 function removeTask(taskId) {
     tasksData = tasksData.filter(t => t.id !== taskId);
+    completedTasks.delete(taskId);
+    
+    // Remove this task from other tasks' dependencies
+    tasksData.forEach(task => {
+        if (task.dependencies) {
+            task.dependencies = task.dependencies.filter(depId => depId !== taskId);
+        }
+    });
+    
+    updateDependencyDropdown();
     renderTaskList();
+    
+    // Re-analyze if results were showing
+    const summaryDiv = document.getElementById('results-summary');
+    const isAnalysisShowing = !summaryDiv.classList.contains('hidden');
+    
+    if (isAnalysisShowing && tasksData.length > 0) {
+        // Small delay to ensure DOM updates
+        setTimeout(() => handleAnalyze(), 100);
+    } else if (tasksData.length === 0) {
+        clearResults();
+    }
 }
 
 async function handleAnalyze() {
-    if (tasksData.length === 0) {
-        showResultsError('Add at least one task to analyze');
+    // Only analyze non-completed tasks
+    const activeTasks = tasksData.filter(task => !completedTasks.has(task.id));
+    
+    if (activeTasks.length === 0) {
+        showResultsError('No active tasks to analyze. All tasks are completed.');
         return;
     }
 
@@ -196,7 +313,7 @@ async function handleAnalyze() {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                tasks: tasksData,
+                tasks: activeTasks,
                 strategy: strategy
             })
         });
@@ -211,6 +328,49 @@ async function handleAnalyze() {
         }
 
         displayResults(data);
+    } catch (error) {
+        showLoading(false);
+        showResultsError('Network error: ' + error.message);
+        console.error('API Error:', error);
+    }
+}
+
+async function handleSuggest() {
+    // Only suggest from non-completed tasks
+    const activeTasks = tasksData.filter(task => !completedTasks.has(task.id));
+    
+    if (activeTasks.length === 0) {
+        showResultsError('No active tasks for suggestions. All tasks are completed.');
+        return;
+    }
+
+    const strategy = document.getElementById('strategy-select').value;
+
+    showLoading(true);
+    clearResults();
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/suggest/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                tasks: activeTasks,
+                strategy: strategy
+            })
+        });
+
+        const data = await response.json();
+
+        showLoading(false);
+
+        if (!response.ok || !data.success) {
+            showResultsError(data.message || data.error || 'Failed to get suggestions');
+            return;
+        }
+
+        displaySuggestions(data);
     } catch (error) {
         showLoading(false);
         showResultsError('Network error: ' + error.message);
@@ -237,6 +397,7 @@ function displayResults(data) {
         return `
             <div class="task-card-compact ${priorityClass}">
                 <div class="task-card-header-compact">
+                    <span class="task-serial-result">#${index + 1}</span>
                     <div class="task-card-title-compact">${escapeHtml(task.title)}</div>
                     <span class="priority-badge-compact ${priorityClass}">${task.priority_level}</span>
                 </div>
@@ -268,73 +429,6 @@ function displayResults(data) {
     }).join('');
 }
 
-function showLoading(isLoading) {
-    const spinner = document.getElementById('loading-spinner');
-    const analyzeBtn = document.getElementById('analyze-btn');
-
-    if (isLoading) {
-        spinner.classList.remove('hidden');
-        analyzeBtn.disabled = true;
-    } else {
-        spinner.classList.add('hidden');
-        analyzeBtn.disabled = false;
-    }
-}
-
-function showResultsError(message) {
-    const resultsContainer = document.getElementById('results-container');
-    resultsContainer.innerHTML = `
-        <div style="background-color: rgba(220, 38, 38, 0.1); border-left: 3px solid #dc2626; padding: 12px; border-radius: 6px; color: #dc2626; font-size: 0.9rem;">
-            <strong>Error:</strong> ${escapeHtml(message)}
-        </div>
-    `;
-}
-
-function clearResults() {
-    document.getElementById('results-container').innerHTML = '<p class="empty-state-large">Results will appear here</p>';
-    document.getElementById('results-summary').classList.add('hidden');
-}
-
-async function handleSuggest() {
-    if (tasksData.length === 0) {
-        showResultsError('Add at least one task to get suggestions');
-        return;
-    }
-
-    const strategy = document.getElementById('strategy-select').value;
-
-    showLoading(true);
-    clearResults();
-
-    try {
-        const response = await fetch(`${API_BASE_URL}/suggest/`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                tasks: tasksData,
-                strategy: strategy
-            })
-        });
-
-        const data = await response.json();
-
-        showLoading(false);
-
-        if (!response.ok || !data.success) {
-            showResultsError(data.message || data.error || 'Failed to get suggestions');
-            return;
-        }
-
-        displaySuggestions(data);
-    } catch (error) {
-        showLoading(false);
-        showResultsError('Network error: ' + error.message);
-        console.error('API Error:', error);
-    }
-}
-
 function displaySuggestions(data) {
     const resultsContainer = document.getElementById('results-container');
     const summaryDiv = document.getElementById('results-summary');
@@ -350,12 +444,12 @@ function displaySuggestions(data) {
 
     resultsContainer.innerHTML = data.suggestions.map((task, index) => {
         const priorityClass = task.priority.toLowerCase();
-        const rank = index + 1;
 
         return `
             <div class="task-card-compact ${priorityClass}">
                 <div class="task-card-header-compact">
-                    <div class="task-card-title-compact">#${rank} - ${escapeHtml(task.title)}</div>
+                    <span class="task-serial-result">#${index + 1}</span>
+                    <div class="task-card-title-compact">${escapeHtml(task.title)}</div>
                     <span class="priority-badge-compact ${priorityClass}">${task.priority}</span>
                 </div>
 
@@ -378,16 +472,34 @@ function displaySuggestions(data) {
     }).join('');
 }
 
-function handleDeleteAll() {
-    if (tasksData.length === 0) {
-        return;
-    }
+function showLoading(isLoading) {
+    const spinner = document.getElementById('loading-spinner');
+    const analyzeBtn = document.getElementById('analyze-btn');
+    const suggestBtn = document.getElementById('suggest-btn');
 
-    if (confirm(`Are you sure you want to delete all ${tasksData.length} tasks?`)) {
-        tasksData = [];
-        renderTaskList();
-        clearResults();
+    if (isLoading) {
+        spinner.classList.remove('hidden');
+        if (analyzeBtn) analyzeBtn.disabled = true;
+        if (suggestBtn) suggestBtn.disabled = true;
+    } else {
+        spinner.classList.add('hidden');
+        if (analyzeBtn) analyzeBtn.disabled = false;
+        if (suggestBtn) suggestBtn.disabled = false;
     }
+}
+
+function showResultsError(message) {
+    const resultsContainer = document.getElementById('results-container');
+    resultsContainer.innerHTML = `
+        <div style="background-color: rgba(220, 38, 38, 0.1); border-left: 3px solid #dc2626; padding: 12px; border-radius: 6px; color: #dc2626; font-size: 0.9rem;">
+            <strong>Error:</strong> ${escapeHtml(message)}
+        </div>
+    `;
+}
+
+function clearResults() {
+    document.getElementById('results-container').innerHTML = '<p class="empty-state-large">Results will appear here</p>';
+    document.getElementById('results-summary').classList.add('hidden');
 }
 
 function escapeHtml(text) {
